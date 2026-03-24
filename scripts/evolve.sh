@@ -4,6 +4,9 @@
 
 set -e
 
+# 获取脚本所在目录
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
 # 配置
 WORKSPACE=~/.openclaw/workspace
 MEMORY_DIR=$WORKSPACE/memory/evolution
@@ -55,8 +58,16 @@ phase_1() {
 phase_1_5() {
     log "🔍 Phase 1.5: 主动反思 (self-improving)"
     # 运行反思脚本，分析最近会话并提取学习
-    if [ -f "$WORKSPACE/skills/self-evolution/scripts/reflect.py" ]; then
-        python3 $WORKSPACE/skills/self-evolution/scripts/reflect.py >> $LOG_FILE 2>&1
+    # 优先检查 skills 目录，然后检查 workspace/skills 目录
+    local reflect_script=""
+    if [ -f "$SCRIPT_DIR/reflect.py" ]; then
+        reflect_script="$SCRIPT_DIR/reflect.py"
+    elif [ -f "$WORKSPACE/skills/self-evolution/scripts/reflect.py" ]; then
+        reflect_script="$WORKSPACE/skills/self-evolution/scripts/reflect.py"
+    fi
+    
+    if [ -n "$reflect_script" ]; then
+        python3 $reflect_script >> $LOG_FILE 2>&1
     else
         log "  - 反思脚本不存在"
     fi
@@ -92,10 +103,16 @@ phase_3() {
 phase_3_5() {
     log "🧹 Phase 3.5: 记忆清理 (memory-hygiene)"
     # 运行向量记忆清理脚本
-    if [ -f "$WORKSPACE/skills/memory-hygiene/scripts/memory_hygiene.py" ]; then
-        python3 $WORKSPACE/skills/memory-hygiene/scripts/memory_hygiene.py stats >> $LOG_FILE 2>&1 || true
-        # 只在超过阈值时自动清理（由脚本内部判断）
-        python3 $WORKSPACE/skills/memory-hygiene/scripts/memory_hygiene.py clean >> $LOG_FILE 2>&1 || true
+    local hygiene_script=""
+    if [ -f "$SCRIPT_DIR/../memory-hygiene/scripts/memory_hygiene.py" ]; then
+        hygiene_script="$SCRIPT_DIR/../memory-hygiene/scripts/memory_hygiene.py"
+    elif [ -f "$WORKSPACE/skills/memory-hygiene/scripts/memory_hygiene.py" ]; then
+        hygiene_script="$WORKSPACE/skills/memory-hygiene/scripts/memory_hygiene.py"
+    fi
+    
+    if [ -n "$hygiene_script" ]; then
+        python3 $hygiene_script stats >> $LOG_FILE 2>&1 || true
+        python3 $hygiene_script clean >> $LOG_FILE 2>&1 || true
     else
         log "  - 记忆清理脚本不存在"
     fi
@@ -106,13 +123,20 @@ phase_3_5() {
 phase_3_6() {
     log "✂️ Phase 3.6: 记忆修剪 (arc-memory-pruner)"
     # 运行记忆修剪脚本
-    if [ -f "$WORKSPACE/skills/arc-memory-pruner/scripts/memory_pruner.py" ]; then
+    local pruner_script=""
+    if [ -f "$SCRIPT_DIR/../arc-memory-pruner/scripts/memory_pruner.py" ]; then
+        pruner_script="$SCRIPT_DIR/../arc-memory-pruner/scripts/memory_pruner.py"
+    elif [ -f "$WORKSPACE/skills/arc-memory-pruner/scripts/memory_pruner.py" ]; then
+        pruner_script="$WORKSPACE/skills/arc-memory-pruner/scripts/memory_pruner.py"
+    fi
+    
+    if [ -n "$pruner_script" ]; then
         # 显示统计
-        python3 $WORKSPACE/skills/arc-memory-pruner/scripts/memory_pruner.py stats >> $LOG_FILE 2>&1 || true
+        python3 $pruner_script stats >> $LOG_FILE 2>&1 || true
         # 修剪过大的文件（保留最近 200 行）
         for file in $WORKSPACE/memory/*.md; do
             if [ -f "$file" ]; then
-                python3 $WORKSPACE/skills/arc-memory-pruner/scripts/memory_pruner.py prune -f "$file" -n 200 >> $LOG_FILE 2>&1 || true
+                python3 $pruner_script prune -f "$file" -n 200 >> $LOG_FILE 2>&1 || true
             fi
         done
     else
