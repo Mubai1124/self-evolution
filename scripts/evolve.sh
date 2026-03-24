@@ -1,12 +1,11 @@
 #!/bin/bash
 # Self-Evolution - 八 Skills 协同自我进化执行脚本
-# 版本：1.0.0
-# 协议：MIT
+# 创建时间：2026-03-24
 
 set -e
 
-# 配置（使用环境变量或默认值）
-WORKSPACE="${OPENCLAW_WORKSPACE:-$HOME/.openclaw/workspace}"
+# 配置
+WORKSPACE=~/.openclaw/workspace
 MEMORY_DIR=$WORKSPACE/memory/evolution
 LOG_FILE=$MEMORY_DIR/evolution.log
 STATE_FILE=$MEMORY_DIR/evolution_state.json
@@ -44,7 +43,6 @@ phase_1() {
     if [ -f "$WORKSPACE/.learnings/ERRORS.md" ]; then
         local errors=$(grep -c "^- " $WORKSPACE/.learnings/ERRORS.md 2>/dev/null || echo 0)
         log "  - 错误记录: $errors 条"
-        update_state ".errors" $errors
     fi
     if [ -f "$WORKSPACE/.learnings/LEARNINGS.md" ]; then
         local learnings=$(grep -c "^- " $WORKSPACE/.learnings/LEARNINGS.md 2>/dev/null || echo 0)
@@ -56,7 +54,12 @@ phase_1() {
 # Phase 1.5: 主动反思
 phase_1_5() {
     log "🔍 Phase 1.5: 主动反思 (self-improving)"
-    # 这个阶段需要模型参与，暂时只记录日志
+    # 运行反思脚本，分析最近会话并提取学习
+    if [ -f "$WORKSPACE/skills/self-evolution/scripts/reflect.py" ]; then
+        python3 $WORKSPACE/skills/self-evolution/scripts/reflect.py >> $LOG_FILE 2>&1
+    else
+        log "  - 反思脚本不存在"
+    fi
     log "  - 主动反思阶段完成"
 }
 
@@ -66,6 +69,11 @@ phase_2() {
     # 检查最近的反思文件
     local reflection_files=$(find $WORKSPACE/memory -name "reflection-*.md" -mtime -1 2>/dev/null | wc -l)
     log "  - 最近反思文件: $reflection_files 个"
+    
+    # 检查 agent-self-reflection skill 是否有脚本
+    if [ -f "$WORKSPACE/skills/agent-self-reflection/scripts/reflect.py" ]; then
+        python3 $WORKSPACE/skills/agent-self-reflection/scripts/reflect.py >> $LOG_FILE 2>&1 || true
+    fi
 }
 
 # Phase 3: 系统维护
@@ -83,26 +91,43 @@ phase_3() {
 # Phase 3.5: 记忆清理
 phase_3_5() {
     log "🧹 Phase 3.5: 记忆清理 (memory-hygiene)"
-    # 这个阶段会清理向量记忆数据库
+    # 运行向量记忆清理脚本
+    if [ -f "$WORKSPACE/skills/memory-hygiene/scripts/memory_hygiene.py" ]; then
+        python3 $WORKSPACE/skills/memory-hygiene/scripts/memory_hygiene.py stats >> $LOG_FILE 2>&1 || true
+        # 只在超过阈值时自动清理（由脚本内部判断）
+        python3 $WORKSPACE/skills/memory-hygiene/scripts/memory_hygiene.py clean >> $LOG_FILE 2>&1 || true
+    else
+        log "  - 记忆清理脚本不存在"
+    fi
     log "  - 记忆清理阶段完成"
 }
 
 # Phase 3.6: 记忆修剪
 phase_3_6() {
     log "✂️ Phase 3.6: 记忆修剪 (arc-memory-pruner)"
-    # 这个阶段会修剪过大的记忆文件
+    # 运行记忆修剪脚本
+    if [ -f "$WORKSPACE/skills/arc-memory-pruner/scripts/memory_pruner.py" ]; then
+        # 显示统计
+        python3 $WORKSPACE/skills/arc-memory-pruner/scripts/memory_pruner.py stats >> $LOG_FILE 2>&1 || true
+        # 修剪过大的文件（保留最近 200 行）
+        for file in $WORKSPACE/memory/*.md; do
+            if [ -f "$file" ]; then
+                python3 $WORKSPACE/skills/arc-memory-pruner/scripts/memory_pruner.py prune -f "$file" -n 200 >> $LOG_FILE 2>&1 || true
+            fi
+        done
+    else
+        log "  - 记忆修剪脚本不存在"
+    fi
     log "  - 记忆修剪阶段完成"
 }
 
 # Phase 4: 进化执行
 phase_4() {
     log "🧬 Phase 4: 进化执行 (capability-evolver)"
-    # 运行 GEP 进化周期（如果存在）
+    # 运行 GEP 进化周期
     if [ -f "$WORKSPACE/skills/capability-evolver/scripts/run_gep.py" ]; then
         log "  - 运行 GEP 进化..."
         python3 $WORKSPACE/skills/capability-evolver/scripts/run_gep.py >> $LOG_FILE 2>&1 || true
-    else
-        log "  - GEP 进化脚本未找到，跳过"
     fi
     # 更新周期计数
     local cycle=$(jq -r '.cycleCount // 0' $STATE_FILE 2>/dev/null || echo 0)
@@ -113,12 +138,10 @@ phase_4() {
 # Phase 5: 行为验证
 phase_5() {
     log "✅ Phase 5: 行为验证 (behavioral-invariant-monitor)"
-    # 运行行为验证（如果存在）
+    # 运行行为验证
     if [ -f "$WORKSPACE/skills/behavioral-invariant-monitor/scripts/verify_behavior.py" ]; then
         log "  - 运行行为验证..."
         python3 $WORKSPACE/skills/behavioral-invariant-monitor/scripts/verify_behavior.py >> $LOG_FILE 2>&1 || true
-    else
-        log "  - 行为验证脚本未找到，跳过"
     fi
     log "  - 行为验证完成"
 }

@@ -1,11 +1,10 @@
 #!/bin/bash
 # 数据归档脚本 - 定期归档错误和学习数据
-# 版本：1.0.0
-# 协议：MIT
+# 创建时间：2026-03-24
 
 set -e
 
-WORKSPACE="${OPENCLAW_WORKSPACE:-$HOME/.openclaw/workspace}"
+WORKSPACE=~/.openclaw/workspace
 LEARNINGS_DIR=$WORKSPACE/.learnings
 ARCHIVE_DIR=$LEARNINGS_DIR/archive
 MEMORY_DIR=$WORKSPACE/memory
